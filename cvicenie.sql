@@ -53,3 +53,9 @@ SELECT
 FROM customers c
 LEFT JOIN orders o ON c.customer_id = o.customer_id
 GROUP BY c.region;
+SELECT 
+    p.product_name, 
+    COALESCE(SUM(o.sales), 0) AS total_sales
+FROM products p
+LEFT JOIN orders o ON p.product_id = o.product_id
+GROUP BY p.product_id, p.product_name;
