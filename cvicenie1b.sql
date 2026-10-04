@@ -19,3 +19,10 @@ CREATE TABLE flourmills_sales (
     production_date DATE,
     total_amount DECIMAL(10, 2)
 );
+SELECT 
+    product_name, 
+    total_amount
+FROM 
+    flourmills_sales
+WHERE 
+    total_amount > (SELECT AVG(total_amount) FROM flourmills_sales);
