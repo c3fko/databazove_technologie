@@ -110,3 +110,37 @@ BEGIN
 END;
 $$;
 CALL get_customer_sales('C001');
+
+-- desinka
+DROP PROCEDURE IF EXISTS apply_regional_discount(VARCHAR, NUMERIC);
+
+CREATE OR REPLACE PROCEDURE apply_regional_discount(region_name VARCHAR, discount_rate NUMERIC)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE orders
+    SET sales = sales * (1 - discount_rate)
+    WHERE region = region_name;
+
+    RAISE NOTICE 'Zľava % bola úspešne aplikovaná pre región %.', discount_rate, region_name;
+END;
+$$;
+CALL apply_regional_discount('West', 0.10);
+
+-- jedenastka
+DROP PROCEDURE IF EXISTS get_sales_between(start_date DATE, end_date DATE);
+
+CREATE OR REPLACE PROCEDURE get_sales_between(start_date DATE, end_date DATE)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_total_sales NUMERIC;
+BEGIN
+    SELECT SUM(sales) INTO v_total_sales
+    FROM orders
+    WHERE order_date BETWEEN start_date AND end_date;
+
+    RAISE NOTICE 'Obdobie od % do % | Celkový predaj: %', start_date, end_date, v_total_sales;
+END;
+$$;
+CALL get_sales_between('2024-01-01', '2024-03-31');
