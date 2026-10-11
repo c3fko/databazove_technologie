@@ -97,22 +97,63 @@ WHERE row_num = 1
 ORDER BY customer_id ASC;
 
 --sestka
-WITH date_bounds AS (
+WITH RECURSIVE date_bounds AS (
     SELECT 
-        MIN(sale_date)::DATE AS min_date,
-        MAX(sale_date)::DATE AS max_date
+        MIN(sale_date) AS start_date,
+        MAX(sale_date) AS end_date
     FROM flourmills_sales
 ),
-recursive_calendar AS (
-    SELECT min_date AS calendar_date, max_date
+calendar AS (
+    SELECT start_date AS sale_date
     FROM date_bounds
-    
+
     UNION ALL
-    
-    SELECT (calendar_date + INTERVAL '1 day')::DATE, max_date
-    FROM recursive_calendar
-    WHERE calendar_date < max_date
+
+    SELECT (sale_date + INTERVAL '1 day')::DATE
+    FROM calendar
+    WHERE sale_date < (SELECT end_date FROM date_bounds)
 )
-SELECT calendar_date
-FROM recursive_calendar
-ORDER BY calendar_date ASC;
+SELECT sale_date
+FROM calendar
+ORDER BY sale_date ASC;
+
+-- sedmicka
+WITH RECURSIVE monthly_revenue AS (
+    SELECT 
+        DATE_TRUNC('month', sale_date)::DATE AS month,
+        SUM(total_amount) AS revenue
+    FROM flourmills_sales
+    GROUP BY DATE_TRUNC('month', sale_date)
+),
+ordered_months AS (
+    SELECT 
+        ROW_NUMBER() OVER (ORDER BY month) AS rn,
+        month,
+        revenue
+    FROM monthly_revenue
+),
+cumulative_target AS (
+    SELECT 
+        rn,
+        month,
+        revenue,
+        revenue AS cumulative_revenue
+    FROM ordered_months
+    WHERE rn = 1
+
+    UNION ALL
+
+    SELECT 
+        om.rn,
+        om.month,
+        om.revenue,
+        ct.cumulative_revenue + om.revenue AS cumulative_revenue
+    FROM cumulative_target ct
+    JOIN ordered_months om ON om.rn = ct.rn + 1
+    WHERE ct.cumulative_revenue < 500000000
+)
+SELECT 
+    TO_CHAR(month, 'YYYY-MM') AS month,
+    cumulative_revenue
+FROM cumulative_target
+ORDER BY rn;
