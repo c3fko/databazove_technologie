@@ -87,21 +87,63 @@ SELECT
     ) AS pct_of_category
 FROM product_sales_cte;
 -- uloha 6
-WITH customer_orders_summary AS (
+WITH customer_orders AS (
     SELECT DISTINCT
         c.customer_id,
         c.customer_name,
-        MAX(o.order_date) OVER (
-            PARTITION BY c.customer_id
-        ) AS last_order_date,
+        MAX(o.order_date) OVER (PARTITION BY c.customer_id) AS last_order_date,
         MAX(o.order_date) OVER () AS latest_order_date
     FROM customers c
-    JOIN orders o ON c.customer_id = o.product_id
+    JOIN orders o ON c.customer_id = o.customer_id
 )
 SELECT 
     customer_id,
     customer_name,
     last_order_date
-FROM customer_orders_summary
+FROM customer_orders
 WHERE last_order_date < latest_order_date - INTERVAL '90 days'
 ORDER BY last_order_date ASC;
+-- uloha 7
+WITH monthly_sales_summary AS (
+    SELECT 
+        DATE_TRUNC('month', order_date)::DATE AS month,
+        SUM(sales) AS monthly_sales
+    FROM orders
+    GROUP BY DATE_TRUNC('month', order_date)::DATE
+),
+monthly_with_lag AS (
+    SELECT 
+        month,
+        monthly_sales,
+        LAG(monthly_sales) OVER (ORDER BY month) AS prev_month_sales
+    FROM monthly_sales_summary
+)
+SELECT 
+    month,
+    monthly_sales,
+    prev_month_sales,
+    (monthly_sales - prev_month_sales) AS sales_change,
+    ROUND(
+        ((monthly_sales - prev_month_sales) * 100.0 / prev_month_sales),
+        2
+    ) AS growth_percentage
+FROM monthly_with_lag
+ORDER BY month ASC;
+-- uloha 8
+WITH first_purchases AS (
+    SELECT 
+        customer_id,
+        MIN(DATE_TRUNC('month', order_date)) AS first_month
+    FROM orders
+    GROUP BY customer_id
+)
+SELECT 
+    COUNT(DISTINCT fp.customer_id) AS returning_customers_count
+FROM first_purchases fp
+WHERE fp.first_month = '2024-06-01'
+  AND EXISTS (
+      SELECT 1 
+      FROM orders o 
+      WHERE o.customer_id = fp.customer_id 
+        AND DATE_TRUNC('month', o.order_date) > fp.first_month
+  );
